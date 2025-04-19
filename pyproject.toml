@@ -1,5 +1,5 @@
 [project]
-name = "hf-resource-estimator"
+name = "hfest"
 version = "0.1.0"
 description = "hfest: estimate how many resources a hugging face model would require to run at minimal or recommended configuration"
 readme = "README.md"
@@ -10,4 +10,8 @@ dependencies = [
 ]
 
 [project.scripts]
-hfest = "hf_resource_estimator.cli:main"
+hfest = "hfest.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/rezanatha/hfest"
+"Bug Tracker" = "https://github.com/rezanatha/hfest/issues"
