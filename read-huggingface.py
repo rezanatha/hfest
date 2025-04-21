@@ -15,6 +15,7 @@ model_files = api.list_repo_files(model_id)
 
 model_extensions = ('.safetensors', '.bin', '.pt', '.ckpt')
 model_files = [f for f in model_files if any(f.endswith(ext) for ext in model_extensions)]
+print(f"got {len(model_files)} model files")
 
 file_infos = []
 for file in model_files[:10]:  # Limit to first 5 files to avoid API abuse
@@ -38,7 +39,5 @@ if len(model_files) > 5 and any(size != "Unknown" for _, size in file_infos):
         estimated_total = avg_size * len(model_files)
         print(f"\nEstimated total size (based on sample): {estimated_total / (1024**3):.2f} GB")
         print(f"Total number of model files: {len(model_files)}")
-
-# Calculate total size of model files
-# total_size = sum(file.size for file in info.siblings if file.rfilename.endswith(('.bin', '.safetensors')))
-# print(f"Model size: {total_size / (1024 ** 3):.2f} GB")
+    else:
+        print("Model size unknown")
