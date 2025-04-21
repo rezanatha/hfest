@@ -79,11 +79,11 @@ def handle(args):
     # 2. PYTORCH BIN
     elif 'pytorch' in estimated_total:
         print("Comparing model size and free GPU memory on single GPU settings")
-        compare_model_and_gpu(estimated_total, gpu_info)
+        compare_single_setup(estimated_total, gpu_info)
     # 3. ONNX
     elif 'onnx' in estimated_total:
         print("Comparing model size and free GPU memory on single GPU settings")
-        compare_model_and_gpu(estimated_total, gpu_info)
+        compare_single_setup(estimated_total, gpu_info)
     # 4. OTHERS
 
     
