@@ -46,6 +46,28 @@ def _estimate_model_files(args):
         repo_files = content.get('siblings', None)
         model_params_size = content.get('safetensors',{}).get('total',None)
         total_used_storage = float(content.get('usedStorage', 0)) / (1024 ** 3)
+    elif response.status_code == 401:
+        print("Authentication error: Invalid or expired API token.")
+        return 1
+    elif response.status_code == 403:
+        print("Authorization error: You don't have access to this model repository.")
+        return 1
+    elif response.status_code == 404:
+        print(f"Model not found: {args.model_id} doesn't exist on HuggingFace Hub.")
+        return 1
+    elif response.status_code == 429:
+        print("Rate limit exceeded. Please try again later.")
+        return 1
+    else:
+        print(f"API request failed with status code: {response.status_code}")
+        if response.content:
+            try:
+                error_content = json.loads(response.content)
+                if 'error' in error_content:
+                    print(f"Error message: {error_content['error']}")
+            except json.JSONDecodeError:
+                print(f"Response content: {response.content.decode('utf-8', errors='replace')}")
+        return 1
 
     print(f"Total used storage for the whole repository: {total_used_storage:.2f} GB")
     print(f"Parameter size: {model_params_size}")
@@ -59,7 +81,7 @@ def _estimate_model_files(args):
                 if r['rfilename'].split('.')[-1] in v:
                     model_files[k].append(r['rfilename'])
     else:
-        print("is an empty repository")
+        print("Is an empty repository")
         return None
             
     print("Model files: ")
