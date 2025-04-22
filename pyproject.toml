@@ -1,13 +1,17 @@
 [project]
 name = "hfest"
-version = "0.1.0"
+dynamic = ["version"]
 description = "hfest: estimate how many resources a hugging face model would require to run at minimal or recommended configuration"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "huggingface-hub>=0.30.2",
+    "pytest>=8.3.5",
     "python-dotenv>=1.1.0",
 ]
+
+[tool.setuptools.dynamic]
+version = {attr = "hfest.version.__version__"}
 
 [project.scripts]
 hfest = "hfest.cli:main"

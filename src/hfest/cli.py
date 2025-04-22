@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from commands import config, estimate_size, estimate_resource
+from version import __version__
 
 def main():
     '''main entry'''
@@ -9,6 +10,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="HFest: Hugging Face model size and resource estimator"
     )
+
+    parser.add_argument('--version', action='version', 
+                        version=f'%(prog)s {__version__}')
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
