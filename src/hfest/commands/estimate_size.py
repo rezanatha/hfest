@@ -1,7 +1,8 @@
-from utils.config import read_config
+from ..utils.config import read_config
 from huggingface_hub import hf_hub_download, scan_cache_dir, HfApi, login
 import json
 import requests
+import re
 
 def setup_parser(subparsers):
     parser = subparsers.add_parser("estimate-size", help="Estimate model size")
@@ -10,10 +11,18 @@ def setup_parser(subparsers):
 
 # TODO:
 # validate the input from args.model_id: it should only process model ID like account/model_name
+def _validate_model_id(model_id):
+    pattern = r'^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$'
+    return bool(re.match(pattern, model_id))
 
 def _estimate_model_files(args):
 
     config = read_config()
+
+    if not _validate_model_id(args.model_id):
+        print(f"Invalid model ID format: {args.model_id}")
+        print("Model ID should follow the format: username/model-name")
+        return 1
 
     if config['api_key'] is None:
         print("No HuggingFace API key specified.")
@@ -86,12 +95,6 @@ def _estimate_model_files(args):
     return estimated_total
 
 def handle(args):
-    # # connect to model ID
-    # model_id = args.model_id
-    # model_files = api.list_repo_files(model_id)
-
-    # model_files = [f for f in model_files if any(f.endswith(ext) for ext in model_extensions)]
-    # print(f"got {len(model_files)} model files, only print the first 5")
     print(f"Estimating size for model: {args.model_id}")
     estimated_total = _estimate_model_files(args)
     

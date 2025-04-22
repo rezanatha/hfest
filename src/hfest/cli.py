@@ -1,8 +1,8 @@
 import argparse
 import sys
 
-from commands import config, estimate_size, estimate_resource
-from version import __version__
+from .commands import config, estimate_size, estimate_resource
+from .version import __version__
 
 def main():
     '''main entry'''
@@ -24,12 +24,15 @@ def main():
     config.setup_parser(subparsers)
 
     # Parse arguments
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        raise
 
     # If no command is specified, show help and exit
     if not args.command:
-        parser.print_help()
-        return 1
+        parser.print_help(file=sys.stderr)
+        sys.exit(1)
 
     # Handle commands
     if args.command == "estimate-size":

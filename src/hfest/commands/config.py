@@ -1,4 +1,4 @@
-from utils.config import read_config, update_config
+from ..utils.config import read_config, update_config
 
 
 def setup_parser(subparsers):

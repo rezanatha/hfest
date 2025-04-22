@@ -1,4 +1,4 @@
-from commands.estimate_size import _estimate_model_files
+from .estimate_size import _estimate_model_files
 import subprocess
 
 def get_gpu_info():

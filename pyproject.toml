@@ -13,6 +13,11 @@ dependencies = [
 [tool.setuptools.dynamic]
 version = {attr = "hfest.version.__version__"}
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
 [project.scripts]
 hfest = "hfest.cli:main"
 
