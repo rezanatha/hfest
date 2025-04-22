@@ -16,7 +16,7 @@ A simple command line app that does estimation of the size of a Hugging Face mod
 git clone www.github.com/rezanatha/hfest.git
 cd hfest
 ```
-2. Install with (uv)[https://docs.astral.sh/uv/] (Recommended)
+2. Install with [uv](https://docs.astral.sh/uv/) (Recommended)
 ```
 uv pip install -e .
 ```
