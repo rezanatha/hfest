@@ -24,15 +24,15 @@ def get_gpu_info():
     except:
         return "No NVIDIA GPUs detected or nvidia-smi failed to run"
 
-def compare_single_setup(estimated_total, gpu_info):
+def compare_single_setup(estimated_total, gpu_info, margin_of_safety = 0.2):
     # how many resources would it take?
     size_mb = int(estimated_total['safetensors'] / (1024 * 1024))
     for gpu in gpu_info:
         gpu_mb = int(gpu['memory.free'].split(" ")[0])
-        if size_mb > gpu_mb:
+        if size_mb + size_mb * margin_of_safety > gpu_mb :
             print(f"Insufficient memory on GPU {gpu['index']}: {gpu['name']}: Model size {size_mb} MB vs Free GPU memory {gpu_mb} MB")
         else:
-            print(f"Model would fit on GPU {gpu['index']}: {gpu['name']}: Model size {size_mb:2f} MB vs Free GPU memory {gpu_mb} MB")
+            print(f"Model would fit on GPU {gpu['index']}: {gpu['name']}: Model size {size_mb} MB vs Free GPU memory {gpu_mb} MB")
 
 def compare_quantized(estimated_total, gpu_info):
     return 0
