@@ -3,35 +3,36 @@ from huggingface_hub import hf_hub_download, scan_cache_dir, HfApi, login
 import json
 import requests
 import re
+import sys
 
 def setup_parser(subparsers):
     parser = subparsers.add_parser("estimate-size", help="Estimate model size")
     parser.add_argument("model_id", help="Hugging Face model ID (e.g., meta-llama/Llama-2-7b)")
     return parser
 
-# TODO:
-# validate the input from args.model_id: it should only process model ID like account/model_name
-def _validate_model_id(model_id):
+
+def validate_model_id(model_id):
     pattern = r'^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$'
     return bool(re.match(pattern, model_id))
 
-def _estimate_model_files(args):
+def estimate_model_files(args):
 
     config = read_config()
 
-    if not _validate_model_id(args.model_id):
-        print(f"Invalid model ID format: {args.model_id}")
-        print("Model ID should follow the format: username/model-name")
-        return 1
+    if not validate_model_id(args.model_id):
+        print(f"ERROR: Invalid model ID format: {args.model_id}")
+        print("ERROR: Model ID should follow the format: username/model-name")
+        return None
 
     if config['api_key'] is None:
-        print("No HuggingFace API key specified.")
-        return 1
+        print("ERROR: No HuggingFace API key specified.")
+        return None
     
     # Initialize the API
     api = HfApi()
     login(config['api_key'])
-
+    sys.stdout.write("Repository Size: calculating...\r")
+    sys.stdout.flush()
     response = requests.get(
         f"https://huggingface.co/api/models/{args.model_id}",
         params={'fields': ['usedStorage', 'safetensors', 'siblings']},
@@ -47,19 +48,19 @@ def _estimate_model_files(args):
         model_params_size = content.get('safetensors',{}).get('total',None)
         total_used_storage = float(content.get('usedStorage', 0)) / (1024 ** 3)
     elif response.status_code == 401:
-        print("Authentication error: Invalid or expired API token.")
-        return 1
+        print("ERROR: Authentication error: Invalid or expired API token.")
+        return None
     elif response.status_code == 403:
-        print("Authorization error: You don't have access to this model repository.")
-        return 1
+        print("ERROR: Authorization error: You don't have access to this model repository.")
+        return None
     elif response.status_code == 404:
-        print(f"Model not found: {args.model_id} doesn't exist on HuggingFace Hub.")
-        return 1
+        print(f"ERROR: Model not found: {args.model_id} doesn't exist on HuggingFace Hub.")
+        return None
     elif response.status_code == 429:
-        print("Rate limit exceeded. Please try again later.")
-        return 1
+        print("ERROR: Rate limit exceeded. Please try again later.")
+        return None
     else:
-        print(f"API request failed with status code: {response.status_code}")
+        print(f"ERROR: API request failed with status code: {response.status_code}")
         if response.content:
             try:
                 error_content = json.loads(response.content)
@@ -67,12 +68,19 @@ def _estimate_model_files(args):
                     print(f"Error message: {error_content['error']}")
             except json.JSONDecodeError:
                 print(f"Response content: {response.content.decode('utf-8', errors='replace')}")
-        return 1
+        return None
+    sys.stdout.write("\r" + " " * 50 + "\r") 
+    sys.stdout.write(f"Repository Size: {total_used_storage:.2f} GB\n")
+    sys.stdout.flush()
 
-    print(f"Total used storage for the whole repository: {total_used_storage:.2f} GB")
-    print(f"Parameter size: {model_params_size}")
+    formatted_param_count = f"{model_params_size:,}"
+    sys.stdout.write(f"Model Parameter Count: {formatted_param_count}\n")
+    sys.stdout.flush()
 
-    model_extensions = (('safetensors',['safetensors']), ('pytorch', ['bin', 'pt', 'pth']))
+    model_extensions = (('safetensors',['safetensors']), 
+                        ('pytorch', ['bin', 'pt', 'pth']),
+                        )
+    
     model_files = {k[0]: [] for k in model_extensions}
     
     if isinstance(repo_files, list):
@@ -84,19 +92,21 @@ def _estimate_model_files(args):
         print("Is an empty repository")
         return None
             
-    print("Model files: ")
-    for k,v in model_files.items():
-        print(f"{len(v)} {k}",end=" ")
-    print("\n")
+    sys.stdout.write("Estimated Model File Distribution: calculating...\r")
+    sys.stdout.flush()
+
+    # for k,v in model_files.items():
+    #     print(f"{len(v)} {k}",end=" ")
+    # print("\n")
 
     # fetch real model size 
     estimated_total = {k[0]: [] for k in model_extensions}
-    for model_type, model_name in model_files.items():
+    for i, (model_type, model_name) in enumerate(model_files.items()):
         file_infos = []
-        for file in model_name[:5]:  # Limit to first 5 files to avoid API abuse
+        
+        for file in model_name[:10]:  # Limit to first 10 files to avoid API abuse
             file_info = api.get_paths_info(repo_id=args.model_id, paths=[file])[0]
             file_infos.append((file, file_info.size if hasattr(file_info, 'size') and file_info.size else "Unknown"))
-
         # for file, size in file_infos:
         #     if size != "Unknown":
         #         size_mb = size / (1024 * 1024)
@@ -104,20 +114,27 @@ def _estimate_model_files(args):
         #     else:
         #         print(f"{model_type} File: {file}, Size: Unknown")
         
-        # For models with many shards, we can estimate total size in GB based on a sample of 5 models
         if any(size != "Unknown" for _, size in file_infos):
+            if i == 0:
+                sys.stdout.write("\r" + " " * 50 + "\r")
+                sys.stdout.write("Estimated Model File Distribution:\n") 
+                sys.stdout.flush()
+
             known_sizes = [size for _, size in file_infos if size != "Unknown"]
             if known_sizes:
                 avg_size = sum(known_sizes) / len(known_sizes)
                 estimated_total[model_type] = avg_size * len(model_name)
-                print(f"Estimated used storage for {model_type}: {estimated_total[model_type] / (1024**3):.2f} GB")
-            else:
-                print("Model size unknown")
+                print(f"  • {model_type}: {len(model_name)} file(s) ({estimated_total[model_type] / (1024**3):.2f} GB)")
+        else:
+            print(f"  • {model_type}: {len(model_name)} file(s) (0 GB)")
 
     return estimated_total
 
 def handle(args):
-    print(f"Estimating size for model: {args.model_id}")
-    estimated_total = _estimate_model_files(args)
+    print(f"Model: {args.model_id}")
+    print("----------------------------------------")
+    estimated_total = estimate_model_files(args)
+    if estimated_total is None:
+        return 1
     
     return 0

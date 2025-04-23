@@ -1,4 +1,4 @@
-from .estimate_size import _estimate_model_files
+from .estimate_size import estimate_model_files
 import subprocess
 
 def get_gpu_info():
@@ -51,7 +51,7 @@ def setup_parser(subparsers):
 def handle(args):
     print(f"Estimating resources for model: {args.model_id}")
     # estimate model size
-    estimated_total = _estimate_model_files(args)
+    estimated_total = estimate_model_files(args)
     # detect host GPU specifications (from something like nvidia-smi)
     # detect nvidia GPU
     gpu_info = get_gpu_info()
