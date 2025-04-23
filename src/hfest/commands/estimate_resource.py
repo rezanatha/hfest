@@ -4,13 +4,14 @@ import subprocess
 RED = "\033[91m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
-RESET = "\033[0m"  # Reset color to terminal default
+RESET = "\033[0m"
 
 def get_gpu_info():
     try:
         # Run nvidia-smi command
         output = subprocess.check_output(['nvidia-smi', 
-                                          '--query-gpu=index,name,memory.total,memory.used,memory.free', '--format=csv,noheader'], 
+                                          '--query-gpu=index,name,memory.total,memory.used,memory.free', 
+                                          '--format=csv,noheader'], 
                                         universal_newlines=True)
         
         # Process the output
@@ -63,7 +64,7 @@ def handle(args):
     # detect nvidia GPU
     gpu_info = get_gpu_info()
     if isinstance(gpu_info, list):
-        print(f"Number of available GPUs: {len(gpu_info)}")
+        print(f"Number of Available GPUs: {len(gpu_info)}")
         for gpu in gpu_info:
             free = int(gpu['memory.free'].split(" ")[0])
             total = int(gpu['memory.total'].split(" ")[0])

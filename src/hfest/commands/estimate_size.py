@@ -20,7 +20,7 @@ def estimate_model_files(args):
     config = read_config()
 
     if not validate_model_id(args.model_id):
-        print(f"ERROR: Invalid model ID format: {args.model_id}")
+        print(f"Invalid model ID format: {args.model_id}")
         print("ERROR: Model ID should follow the format: username/model-name")
         return None
 
@@ -45,7 +45,7 @@ def estimate_model_files(args):
     if response.status_code == 200:
         content = json.loads(response.content)
         repo_files = content.get('siblings', None)
-        model_params_size = content.get('safetensors',{}).get('total',None)
+        model_params_size = content.get('safetensors',{}).get('total',0)
         total_used_storage = float(content.get('usedStorage', 0)) / (1024 ** 3)
     elif response.status_code == 401:
         print("ERROR: Authentication error: Invalid or expired API token.")
@@ -69,6 +69,8 @@ def estimate_model_files(args):
             except json.JSONDecodeError:
                 print(f"Response content: {response.content.decode('utf-8', errors='replace')}")
         return None
+    
+
     sys.stdout.write("\r" + " " * 50 + "\r") 
     sys.stdout.write(f"Repository Size: {total_used_storage:.2f} GB\n")
     sys.stdout.flush()
@@ -83,7 +85,7 @@ def estimate_model_files(args):
     
     model_files = {k[0]: [] for k in model_extensions}
     
-    if isinstance(repo_files, list):
+    if isinstance(repo_files, list) and len(repo_files) > 0:
         for r in repo_files:
             for k, v in model_extensions:
                 if r['rfilename'].split('.')[-1] in v:
