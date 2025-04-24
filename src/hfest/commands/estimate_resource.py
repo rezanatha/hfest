@@ -135,7 +135,7 @@ def get_apple_gpu_info():
     except:
         return [gpu_info]
 
-def compare_single_setup(estimated_total: list, gpu_info, margin_of_safety = 0.2):
+def compare_single_setup(estimated_total, gpu_info, margin_of_safety = 0.2):
     # how many resources would it take?
     size = estimated_total / (1024 ** 3)
     for gpu in gpu_info:
@@ -198,7 +198,8 @@ def handle(args):
     # MODEL PRIORITY
     # 1. SAFETENSORS
     print("----------------------------------------")
-    if 'safetensors' in estimated_total:
+    print(estimated_total)
+    if estimated_total.get('safetensors', 0) > 0:
         # Original Settings, all model is fitted into GPU
         print("[SINGLE GPU] Safetensors Model File Size vs Free GPU Memory:")
         compare_single_setup(estimated_total['safetensors'], gpu_info)
@@ -207,12 +208,12 @@ def handle(args):
         # if running on a single/distributed system
 
     # 2. PYTORCH BIN
-    elif 'pytorch' in estimated_total:
+    elif estimated_total.get('pytorch', 0) > 0:
         print("[SINGLE GPU] PyTorch Model File Size vs Free GPU Memory:")
         compare_single_setup(estimated_total['pytorch'], gpu_info)
     # 3. ONNX ()
-    elif 'onnx' in estimated_total:
-        print("[SINGLE GPU] Model File Size vs Free GPU Memory:")
+    elif estimated_total.get('onnx', 0) > 0:
+        print("[SINGLE GPU] ONNX Model File Size vs Free GPU Memory:")
         compare_single_setup(estimated_total['onnx'], gpu_info)
     # 4. OTHERS
 

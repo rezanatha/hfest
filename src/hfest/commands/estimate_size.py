@@ -12,7 +12,7 @@ def setup_parser(subparsers):
 
 
 def validate_model_id(model_id):
-    pattern = r'^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$'
+    pattern = r'^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$'
     return bool(re.match(pattern, model_id))
 
 def estimate_model_files(args):
@@ -102,7 +102,7 @@ def estimate_model_files(args):
     # print("\n")
 
     # fetch real model size 
-    estimated_total = {k[0]: [] for k in model_extensions}
+    estimated_total = {k[0]: 0 for k in model_extensions}
     for i, (model_type, model_name) in enumerate(model_files.items()):
         file_infos = []
         
