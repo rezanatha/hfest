@@ -173,13 +173,13 @@ def handle(args):
     gpu_set = detect_gpu(detected_os)
     gpu_info = []
     if "NVIDIA" in gpu_set:
-        gpu_info.append(get_nvidia_gpu_info())
+        gpu_info.extend(get_nvidia_gpu_info())
     if "AMD" in gpu_set:
-        gpu_info.append(get_amd_gpu_info())
+        gpu_info.extend(get_amd_gpu_info())
     if "INTEL" in gpu_set:
-        gpu_info.append(get_intel_gpu_info())  
+        gpu_info.extend(get_intel_gpu_info())  
     if "APPLE" in gpu_set:
-        gpu_info.append(get_apple_gpu_info())  
+        gpu_info.extend(get_apple_gpu_info())  
 
     if isinstance(gpu_info, list):
         print(f"Number of Available GPUs: {len(gpu_info)}")
