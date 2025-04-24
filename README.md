@@ -13,25 +13,25 @@ A simple command line app that does estimation of the size of a Hugging Face mod
 ## Installation
 1. Clone from the repository
 ```
-git clone www.github.com/rezanatha/hfest.git
+git clone https://www.github.com/rezanatha/hfest.git
 cd hfest
 ```
 2. Install with [uv](https://docs.astral.sh/uv/) (Recommended)
 ```
-uv pip install -e .
+uv run pip install -e .
 ```
 3. Run and set your HuggingFace API
 ```
-uv hfest --help
-uv hfest config set api_key {YOUR_API_KEY}
+uv run hfest --help
+uv run hfest config set api_key {YOUR_API_KEY}
 ```
 
 4. Estimate model used storage
 ```
-uv hfest estimate-size {MODEL_ID}
+uv run hfest estimate-size {MODEL_ID}
 ```
 
 5. Estimate model used storage and check whether the model(s) fit to your current GPU free memory
 ```
-uv hfest estimate-resource {MODEL_ID}
+uv run hfest estimate-resource {MODEL_ID}
 ```

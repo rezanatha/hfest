@@ -115,7 +115,24 @@ def get_intel_gpu_info():
 
 def get_apple_gpu_info():
     print("Calculation of GPU memory on Apple devices is not supported yet.")
-    return []
+    gpu_info = {
+                'index': 0,
+                'name': None,
+                'memory.total': 0,
+                'memory.used': 0,
+                'memory.free': 0
+            }
+    try:
+        cmd = ["system_profiler", "SPDisplaysDataType"]
+        output = subprocess.check_output(cmd, 
+                                    universal_newlines=True)
+        model_name = None
+        for line in output.split('\n'):
+            line = line.strip()
+            if "Chipset Model:" in line:
+                gpu_info['name'] = line.split("Chipset Model:")[1].strip()
+    except:
+        return [gpu_info]
 
 def compare_single_setup(estimated_total: list, gpu_info, margin_of_safety = 0.2):
     # how many resources would it take?
