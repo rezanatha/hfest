@@ -118,9 +118,9 @@ def get_apple_gpu_info():
     gpu_info = {
                 'index': 0,
                 'name': None,
-                'memory.total': 0,
-                'memory.used': 0,
-                'memory.free': 0
+                'memory.total': "0 MiB",
+                'memory.used': "0 MiB",
+                'memory.free': "0 MiB"
             }
     try:
         cmd = ["system_profiler", "SPDisplaysDataType"]
