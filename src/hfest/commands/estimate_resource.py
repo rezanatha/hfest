@@ -16,7 +16,7 @@ def detect_os():
         return "Windows"
     elif platform.system() == "Darwin":  # macOS
         version = platform.mac_ver()
-        print(f"macOS version: {version}")
+        print(f"macOS version: {version[0]}")
         return "Darwin"
     elif platform.system() == "Linux":
         try:
@@ -157,8 +157,8 @@ def make_recommendation(result):
 def setup_parser(subparsers):
     parser = subparsers.add_parser("estimate-resource", help = "Estimate model size and resource needed to run the model")
     parser.add_argument("model_id", help="Hugging Face model ID (e.g., meta-llama/Llama-2-7b)")
-    parser.add_argument("--gpu_config", type=int, default=0, help="GPU config the model is running on (0: auto, 1: single setup, 2: distributed setup, )")
-    parser.add_argument("--quantization", type=int, default=0, help="level of quantization (0: auto, 1: minimal, 2: adequate, 3: aggresive)")
+    parser.add_argument("--gpu_config", type=str, default="all", help="GPU config the model is running on (all, single, distributed)")
+    parser.add_argument("--quantization", type=str, default="all", help="level of quantization (all, 4fp, 16fp)")
     return parser
 
 def handle(args):
