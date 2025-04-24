@@ -44,14 +44,6 @@ def mock_config_no_key():
     return {"api_key": None}
 
 @pytest.fixture
-def captured_stdout(monkeypatch):
-    """Capture stdout for testing console output."""
-    buffer = StringIO()
-    monkeypatch.setattr(sys, 'stdout', buffer)
-    return buffer
-
-
-@pytest.fixture
 def captured_stderr(monkeypatch):
     """Capture stderr for testing console output."""
     buffer = StringIO()
@@ -75,26 +67,34 @@ def test_validate_model_id(model_id, expected):
 
 # Tests for estimate_model_files function
 @patch("src.hfest.commands.estimate_size.read_config")
-def test_invalid_model_id_in_estimate(mock_read_config, invalid_model_id, captured_stdout):
+def test_invalid_model_id_in_estimate(mock_read_config, invalid_model_id, capsys):
     """Test that estimate_model_files rejects invalid model IDs."""
-    args = argparse.Namespace(model_id=invalid_model_id)
+    # Set a return value for read_config
+    mock_read_config.return_value = {"api_key": "fake_api_key"}
     
+    args = argparse.Namespace(model_id=invalid_model_id)
     result = estimate_model_files(args)
     
+    captured = capsys.readouterr()
+    stdout_content = captured.out
+    
     assert result is None
-    assert "Invalid model ID format:" in captured_stdout.getvalue()
+    assert "Invalid model ID format:" in stdout_content, f"Actual stdout: '{stdout_content}'"
 
 
 @patch("src.hfest.commands.estimate_size.read_config")
-def test_no_api_key(mock_read_config, valid_model_id, mock_config_no_key, captured_stdout):
+def test_no_api_key(mock_read_config, valid_model_id, mock_config_no_key, capsys):
     """Test behavior when no API key is provided."""
     mock_read_config.return_value = mock_config_no_key
     args = argparse.Namespace(model_id=valid_model_id)
     
     result = estimate_model_files(args)
+
+    captured = capsys.readouterr()
+    stdout_content = captured.out
     
     assert result is None
-    assert "ERROR: No HuggingFace API key specified" in captured_stdout.getvalue()
+    assert "ERROR: No HuggingFace API key specified" in stdout_content, f"Actual stdout: '{stdout_content}'"
 
 
 @patch("src.hfest.commands.estimate_size.read_config")
@@ -102,7 +102,7 @@ def test_no_api_key(mock_read_config, valid_model_id, mock_config_no_key, captur
 @patch("src.hfest.commands.estimate_size.HfApi")
 @patch("src.hfest.commands.estimate_size.requests.get")
 def test_http_status_codes(mock_get, mock_hfapi, mock_login, mock_read_config, valid_model_id, 
-                          mock_config, captured_stdout):
+                          mock_config, capsys):
     """Test handling of different HTTP status codes."""
     mock_read_config.return_value = mock_config
     mock_api = MagicMock()
@@ -119,8 +119,7 @@ def test_http_status_codes(mock_get, mock_hfapi, mock_login, mock_read_config, v
     
     for status_code, expected_message in status_codes.items():
         # Reset the captured output
-        captured_stdout.seek(0)
-        captured_stdout.truncate(0)
+        capsys.readouterr()
         
         # Mock response with given status code
         mock_response = MagicMock()
@@ -131,10 +130,14 @@ def test_http_status_codes(mock_get, mock_hfapi, mock_login, mock_read_config, v
         # Call the function
         args = argparse.Namespace(model_id=valid_model_id)
         result = estimate_model_files(args)
+
+        # Get captured output after function call
+        captured = capsys.readouterr()
+        stdout_content = captured.out
         
         # Check results
         assert result is None
-        assert expected_message in captured_stdout.getvalue()
+        assert expected_message in stdout_content, f"Expected '{expected_message}' not found in: '{stdout_content}'"
 
 
 @patch("src.hfest.commands.estimate_size.read_config")
@@ -142,7 +145,7 @@ def test_http_status_codes(mock_get, mock_hfapi, mock_login, mock_read_config, v
 @patch("src.hfest.commands.estimate_size.HfApi")
 @patch("src.hfest.commands.estimate_size.requests.get")
 def test_empty_repository(mock_get, mock_hfapi, mock_login, mock_read_config, valid_model_id,
-                         mock_config, captured_stdout):
+                         mock_config, capsys):
     """Test behavior with an empty repository."""
     mock_read_config.return_value = mock_config
     mock_api = MagicMock()
@@ -161,9 +164,12 @@ def test_empty_repository(mock_get, mock_hfapi, mock_login, mock_read_config, va
     args = argparse.Namespace(model_id=valid_model_id)
     
     result = estimate_model_files(args)
+
+    captured = capsys.readouterr()
+    stdout_content = captured.out
     
     assert result is None
-    assert "Is an empty repository" in captured_stdout.getvalue()
+    assert "Is an empty repository" in stdout_content, f"Actual stdout: '{stdout_content}'"
 
 
 @patch("src.hfest.commands.estimate_size.read_config")
@@ -171,7 +177,7 @@ def test_empty_repository(mock_get, mock_hfapi, mock_login, mock_read_config, va
 @patch("src.hfest.commands.estimate_size.HfApi")
 @patch("src.hfest.commands.estimate_size.requests.get")
 def test_successful_estimation(mock_get, mock_hfapi, mock_login, mock_read_config, valid_model_id,
-                             mock_config, captured_stdout):
+                             mock_config, capsys):
     """Test successful model size estimation."""
     mock_read_config.return_value = mock_config
     
@@ -201,40 +207,49 @@ def test_successful_estimation(mock_get, mock_hfapi, mock_login, mock_read_confi
     args = argparse.Namespace(model_id=valid_model_id)
     
     result = estimate_model_files(args)
+
+    captured = capsys.readouterr()
+    stdout_content = captured.out
     
     assert result is not None
     assert "safetensors" in result
     assert "pytorch" in result
-    assert "Repository Size: 10.00 GB" in captured_stdout.getvalue()
-    assert "Model Parameter Count: 70,000,000" in captured_stdout.getvalue()
-    assert "Estimated Model File Distribution:" in captured_stdout.getvalue()
+    assert "Repository Size: 10.00 GB" in stdout_content
+    assert "Model Parameter Count: 70,000,000" in stdout_content
+    assert "Estimated Model File Distribution:" in stdout_content
 
 
 @patch("src.hfest.commands.estimate_size.estimate_model_files")
-def test_handle_function_success(mock_estimate, valid_model_id, captured_stdout):
+def test_handle_function_success(mock_estimate, valid_model_id, capsys):
     """Test the handle function with successful estimation."""
     mock_estimate.return_value = {"safetensors": 1000, "pytorch": 2000}
     
     args = argparse.Namespace(model_id=valid_model_id)
     
     result = handle(args)
+
+    captured = capsys.readouterr()
+    stdout_content = captured.out
     
     assert result == 0
-    assert f"Model: {valid_model_id}" in captured_stdout.getvalue()
+    assert f"Model: {valid_model_id}" in stdout_content
     mock_estimate.assert_called_once_with(args)
 
 
 @patch("src.hfest.commands.estimate_size.estimate_model_files")
-def test_handle_function_failure(mock_estimate, valid_model_id, captured_stdout):
+def test_handle_function_failure(mock_estimate, valid_model_id, capsys):
     """Test the handle function with failed estimation."""
     mock_estimate.return_value = None
     
     args = argparse.Namespace(model_id=valid_model_id)
     
     result = handle(args)
+
+    captured = capsys.readouterr()
+    stdout_content = captured.out
     
     assert result == 1
-    assert f"Model: {valid_model_id}" in captured_stdout.getvalue()
+    assert f"Model: {valid_model_id}" in stdout_content
     mock_estimate.assert_called_once_with(args)
 
 

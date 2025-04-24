@@ -30,9 +30,9 @@ def get_gpu_info():
     except:
         return "No NVIDIA GPUs detected or nvidia-smi failed to run"
 
-def compare_single_setup(estimated_total, gpu_info, margin_of_safety = 0.2):
+def compare_single_setup(estimated_total: list, gpu_info, margin_of_safety = 0.2):
     # how many resources would it take?
-    size = estimated_total['safetensors'] / (1024 ** 3)
+    size = estimated_total / (1024 ** 3)
     for gpu in gpu_info:
         gpu_free = float(gpu['memory.free'].split(" ")[0]) / 1024 
         if size + size * margin_of_safety > gpu_free:
@@ -82,19 +82,19 @@ def handle(args):
     if 'safetensors' in estimated_total:
         # Original Settings, all model is fitted into GPU
         print("[SINGLE GPU] Model File Size vs Free GPU Memory:")
-        compare_single_setup(estimated_total, gpu_info)
+        compare_single_setup(estimated_total['safetensors'], gpu_info)
         # IF QUANTIZED 
         # IF SHARDED AND DISTRIBUTED
         # if running on a single/distributed system
 
     # 2. PYTORCH BIN
     elif 'pytorch' in estimated_total:
-        print("Comparing model size and free GPU memory on single GPU settings")
-        compare_single_setup(estimated_total, gpu_info)
+        print("[SINGLE GPU] Model File Size vs Free GPU Memory:")
+        compare_single_setup(estimated_total['pytorch'], gpu_info)
     # 3. ONNX
     elif 'onnx' in estimated_total:
-        print("Comparing model size and free GPU memory on single GPU settings")
-        compare_single_setup(estimated_total, gpu_info)
+        print("[SINGLE GPU] Model File Size vs Free GPU Memory:")
+        compare_single_setup(estimated_total['onnx'], gpu_info)
     # 4. OTHERS
 
     
