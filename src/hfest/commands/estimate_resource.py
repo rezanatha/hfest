@@ -131,6 +131,7 @@ def get_apple_gpu_info():
             line = line.strip()
             if "Chipset Model:" in line:
                 gpu_info['name'] = line.split("Chipset Model:")[1].strip()
+        return [gpu_info]
     except:
         return [gpu_info]
 
