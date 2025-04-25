@@ -198,7 +198,6 @@ def handle(args):
     # MODEL PRIORITY
     # 1. SAFETENSORS
     print("----------------------------------------")
-    print(estimated_total)
     if estimated_total.get('safetensors', 0) > 0:
         # Original Settings, all model is fitted into GPU
         print("[SINGLE GPU] Safetensors Model File Size vs Free GPU Memory:")

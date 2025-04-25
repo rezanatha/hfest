@@ -81,6 +81,7 @@ def estimate_model_files(args):
 
     model_extensions = (('safetensors',['safetensors']), 
                         ('pytorch', ['bin', 'pt', 'pth']),
+                        ('onnx', ['onnx']),
                         )
     
     model_files = {k[0]: [] for k in model_extensions}

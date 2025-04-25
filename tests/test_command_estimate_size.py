@@ -6,8 +6,6 @@ import sys
 import os
 from io import StringIO
 
-# Import the module to test
-# Adjust the import path as needed based on your project structure
 from src.hfest.commands.estimate_size import setup_parser, validate_model_id, estimate_model_files, handle
 
 # Fixtures
@@ -53,6 +51,8 @@ def captured_stderr(monkeypatch):
 # Tests for validate_model_id function
 @pytest.mark.parametrize("model_id, expected", [
     ("meta-llama/Llama-2-7b", True),
+    ("microsoft/bitnet-b1.58-2B-4T", True), 
+    ("sentence-transformers/all-MiniLM-L6-v2", True),
     ("huggingface/bert-base", True),
     ("", False),
     ("model-without-owner", False),
