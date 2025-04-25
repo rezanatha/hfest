@@ -51,6 +51,7 @@ def captured_stderr(monkeypatch):
 # Tests for validate_model_id function
 @pytest.mark.parametrize("model_id, expected", [
     ("meta-llama/Llama-2-7b", True),
+    ("deepseek-ai/DeepSeek-V3", True),
     ("microsoft/bitnet-b1.58-2B-4T", True), 
     ("sentence-transformers/all-MiniLM-L6-v2", True),
     ("huggingface/bert-base", True),

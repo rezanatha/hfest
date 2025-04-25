@@ -7,6 +7,8 @@ GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RESET = "\033[0m"
 
+PRECISIONS = {"fp32": 1, "fp16": 2, "int8":4, "int4":8}
+
 def detect_os():
     os_name = platform.system()
     print(f"Operating System: {os_name}")
@@ -238,18 +240,16 @@ def get_apple_gpu_info():
     except:
         return [gpu_info]
 
-def compare_single_setup(estimated_total, gpu_info, margin_of_safety = 0.2):
+def compare_single_setup(estimated_total, precision, gpu_info, margin_of_safety = 0.2):
     # how many resources would it take?
-    size = estimated_total / (1024 ** 3)
+
+    size = (estimated_total / PRECISIONS[precision]) / (1024 ** 3)
     for gpu in gpu_info:
         gpu_free = float(gpu['memory.free'].split(" ")[0]) / 1024 
         if size + size * margin_of_safety > gpu_free:
             print(f"  • {RED}[NOT ENOUGH MEMORY]{RESET} on GPU {gpu['index']}: {gpu['name']}. Model size {size:.2f} GB vs Free GPU memory {gpu_free:.2f} GB")
         else:
             print(f"  • {GREEN}[MEMORY CHECK PASSED]{RESET} for {gpu['index']}: {gpu['name']}. Model size {size:.2f} GB vs Free GPU memory {gpu_free:.2f} GB")
-
-def compare_quantized(estimated_total, gpu_info):
-    return 0
 
 def compare_distributed(estimated_total, gpu_info):
     return 0
@@ -262,7 +262,7 @@ def setup_parser(subparsers):
     parser.add_argument("model_id", help="Hugging Face model ID (e.g., meta-llama/Llama-2-7b)")
     parser.add_argument("--filetype", type=str, default="auto", help="Specify model file type for estimation (auto, safetensors, pytorch, onnx)")
     parser.add_argument("--gpu_config", type=str, default="all", help="GPU config the model is running on (all, single, distributed)")
-    parser.add_argument("--quantization", type=str, default="all", help="level of quantization (all, 4fp, 16fp)")
+    parser.add_argument("--precision", type=str, default="all", help="precision level of post-training quantization (all, fp32, fp16, int8, int4)")
     return parser
 
 def handle(args):
@@ -303,12 +303,13 @@ def handle(args):
     # 1. SAFETENSORS
     print("----------------------------------------")
     if estimated_total.get('safetensors', 0) > 0:
-        # Original Settings, all model is fitted into GPU
-        print("[SINGLE GPU] Safetensors Model File Size vs Free GPU Memory:")
-        compare_single_setup(estimated_total['safetensors'], gpu_info)
-        # IF QUANTIZED 
-        # IF SHARDED AND DISTRIBUTED
-        # if running on a single/distributed system
+        precision_levels = ['fp32','fp16', 'int8','int4']
+        for q in precision_levels:
+            print(f"[{q.upper()} - SINGLE] Safetensors Model File Size vs Free GPU Memory:")
+            # Single Settings, all models are fitted into GPU
+            compare_single_setup(estimated_total['safetensors'], q, gpu_info)
+            # IF SHARDED AND DISTRIBUTED
+            compare_distributed(estimated_total['safetensors'], gpu_info)
 
     # 2. PYTORCH BIN
     elif estimated_total.get('pytorch', 0) > 0:
