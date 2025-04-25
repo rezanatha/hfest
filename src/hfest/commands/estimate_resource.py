@@ -44,13 +44,27 @@ def detect_os():
 def detect_gpu(detected_os):
     if detected_os == "Windows":
         gpu_set = set()
-        return gpu_set
+        try:
+            cmd = ["wmic","path", "win32_VideoController", "get", "Caption," "AdapterRAM,", "DriverVersion"]
+            output = subprocess.check_output(cmd, universal_newlines=True)
+            for i, line in enumerate(output.split('\n')):
+                if i == 0: # header
+                    continue
+
+                if "NVIDIA" in line.upper():
+                    gpu_set.add("NVIDIA")
+                elif "AMD" or "RADEON" or "ATI" in gpu.upper():
+                    gpu_set.add("AMD")
+                elif "INTEL" in gpu.upper():
+                    gpu_set.add("INTEL")
+            return gpu_set
+        except:
+            return gpu_set
     elif detected_os == "Darwin":
         gpu_set = set()
         try:
             cmd = ["system_profiler", "SPDisplaysDataType"]
-            output = subprocess.check_output(cmd, 
-                                        universal_newlines=True)
+            output = subprocess.check_output(cmd, universal_newlines=True)
             for line in output.split('\n'):
                 line = line.strip()
                 if "Chipset Model: Apple" in line:
@@ -104,17 +118,106 @@ def get_nvidia_gpu_info():
             })
             
         return gpu_info
-    except:
-        return "No NVIDIA GPUs detected or nvidia-smi failed to run"
+    
+    except subprocess.CalledProcessError as e:
+        error_message = e.stderr if hasattr(e, 'stderr') and e.stderr else str(e)
+        if "NVIDIA-SMI has failed" in error_message:
+            return "NVIDIA driver issues detected. Try updating your drivers."
+        elif "not found" in error_message.lower():
+            return "nvidia-smi command not found. NVIDIA drivers may not be installed."
+        return f"Error running nvidia-smi: {error_message}"
+        
+    except FileNotFoundError:
+        return "nvidia-smi command not found. NVIDIA drivers may not be installed."
+        
+    except Exception as e:
+        return f"Error getting NVIDIA GPU info: {str(e)}"
     
 def get_amd_gpu_info():
-    return []
+    try:
+        # Run rocm-smi command to get memory info
+        output = subprocess.check_output(['rocm-smi', 
+                                          '--showmeminfo', 'vram',
+                                          '-f', 'csv'], 
+                                        universal_newlines=True)
+        
+        # Get device names in a separate command
+        names_output = subprocess.check_output(['rocm-smi', 
+                                               '--showname',
+                                               '-f', 'csv'], 
+                                             universal_newlines=True)
+        
+        # Process the memory output
+        lines = output.strip().split('\n')
+        header = [x.strip() for x in lines[0].split(',')]
+        
+        # Create index to column mapping
+        idx_map = {}
+        for i, col in enumerate(header):
+            if 'GPU ID' in col:
+                idx_map['index'] = i
+            elif 'Total VRAM' in col:
+                idx_map['total'] = i
+            elif 'Used VRAM' in col:
+                idx_map['used'] = i
+        
+        # Process device names
+        name_lines = names_output.strip().split('\n')
+        name_header = [x.strip() for x in name_lines[0].split(',')]
+        name_idx_map = {}
+        for i, col in enumerate(name_header):
+            if 'GPU ID' in col:
+                name_idx_map['index'] = i
+            elif 'Device Name' in col:
+                name_idx_map['name'] = i
+        
+        # Map GPU IDs to names
+        gpu_names = {}
+        for i in range(1, len(name_lines)):
+            values = [x.strip() for x in name_lines[i].split(',')]
+            gpu_id = values[name_idx_map['index']]
+            gpu_name = values[name_idx_map['name']]
+            gpu_names[gpu_id] = gpu_name
+        
+        # Process the data and build the result
+        gpu_info = []
+        for i in range(1, len(lines)):
+            values = [x.strip() for x in lines[i].split(',')]
+            gpu_id = values[idx_map['index']]
+            
+            # Calculate free memory
+            total_mem = values[idx_map['total']]
+            used_mem = values[idx_map['used']]
+            
+            # Extract numeric values for calculation
+            total_num = float(total_mem.split()[0])
+            used_num = float(used_mem.split()[0])
+            free_num = total_num - used_num
+            
+            # Get the unit (should be the same for both)
+            unit = total_mem.split()[1]
+            free_mem = f"{free_num} {unit}"
+            
+            gpu_info.append({
+                'index': gpu_id,
+                'name': gpu_names.get(gpu_id, 'Unknown'),
+                'memory.total': total_mem,
+                'memory.used': used_mem,
+                'memory.free': free_mem
+            })
+            
+        return gpu_info
+    except FileNotFoundError:
+        return "rocm-smi command not found. Make sure ROCm is installed."
+    except Exception as e:
+        return f"Error getting AMD GPU info: {str(e)}"
 
 def get_intel_gpu_info():
+    print("Calculation of Intel GPU memory is not fully supported yet.")
     return []
 
 def get_apple_gpu_info():
-    print("Calculation of GPU memory on Apple devices is not supported yet.")
+    print("Calculation of Apple GPU memory is not fully supported yet.")
     gpu_info = {
                 'index': 0,
                 'name': None,
@@ -157,6 +260,7 @@ def make_recommendation(result):
 def setup_parser(subparsers):
     parser = subparsers.add_parser("estimate-resource", help = "Estimate model size and resource needed to run the model")
     parser.add_argument("model_id", help="Hugging Face model ID (e.g., meta-llama/Llama-2-7b)")
+    parser.add_argument("--filetype", type=str, default="auto", help="Specify model file type for estimation (auto, safetensors, pytorch, onnx)")
     parser.add_argument("--gpu_config", type=str, default="all", help="GPU config the model is running on (all, single, distributed)")
     parser.add_argument("--quantization", type=str, default="all", help="level of quantization (all, 4fp, 16fp)")
     return parser
