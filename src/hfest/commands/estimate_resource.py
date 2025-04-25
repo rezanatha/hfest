@@ -251,7 +251,7 @@ def compare_single_setup(estimated_total, precision, gpu_info, margin_of_safety 
         else:
             print(f"  • {GREEN}[MEMORY CHECK PASSED]{RESET} for {gpu['index']}: {gpu['name']}. Model size {size:.2f} GB vs Free GPU memory {gpu_free:.2f} GB")
 
-def compare_distributed(estimated_total, gpu_info):
+def compare_distributed(estimated_total, precision, gpu_info, margin_of_safety = 0.2):
     return 0
 
 def make_recommendation(result):
@@ -302,23 +302,31 @@ def handle(args):
     # MODEL PRIORITY
     # 1. SAFETENSORS
     print("----------------------------------------")
+    precision_levels = ['fp32','fp16', 'int8','int4']
     if estimated_total.get('safetensors', 0) > 0:
-        precision_levels = ['fp32','fp16', 'int8','int4']
         for q in precision_levels:
             print(f"[{q.upper()} - SINGLE] Safetensors Model File Size vs Free GPU Memory:")
             # Single Settings, all models are fitted into GPU
             compare_single_setup(estimated_total['safetensors'], q, gpu_info)
             # IF SHARDED AND DISTRIBUTED
-            compare_distributed(estimated_total['safetensors'], gpu_info)
+            compare_distributed(estimated_total['safetensors'], q, gpu_info)
 
     # 2. PYTORCH BIN
     elif estimated_total.get('pytorch', 0) > 0:
-        print("[SINGLE GPU] PyTorch Model File Size vs Free GPU Memory:")
-        compare_single_setup(estimated_total['pytorch'], gpu_info)
+        for q in precision_levels:
+            print(f"[{q.upper()} - SINGLE] PyTorch Model File Size vs Free GPU Memory:")
+            # Single Settings, all models are fitted into GPU
+            compare_single_setup(estimated_total['pytorch'], q, gpu_info)
+            # IF SHARDED AND DISTRIBUTED
+            compare_distributed(estimated_total['pytorch'], q, gpu_info)
     # 3. ONNX ()
     elif estimated_total.get('onnx', 0) > 0:
-        print("[SINGLE GPU] ONNX Model File Size vs Free GPU Memory:")
-        compare_single_setup(estimated_total['onnx'], gpu_info)
+        for q in precision_levels:
+            print(f"[{q.upper()} - SINGLE] ONNX Model File Size vs Free GPU Memory:")
+            # Single Settings, all models are fitted into GPU
+            compare_single_setup(estimated_total['onnx'], q, gpu_info)
+            # IF SHARDED AND DISTRIBUTED
+            compare_distributed(estimated_total['onnx'], q, gpu_info)
     # 4. OTHERS
 
     
