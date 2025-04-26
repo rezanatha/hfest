@@ -7,8 +7,6 @@ GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RESET = "\033[0m"
 
-PRECISIONS = {"fp32": 1, "fp16": 2, "int8":4, "int4":8}
-
 def detect_os():
     os_name = platform.system()
     print(f"Operating System: {os_name}")
@@ -243,7 +241,7 @@ def get_apple_gpu_info():
 def compare_single_setup(estimated_total, precision, gpu_info, margin_of_safety = 0.2):
     # how many resources would it take?
 
-    size = (estimated_total / PRECISIONS[precision]) / (1024 ** 3)
+    size = (estimated_total / precision) / (1024 ** 3)
     for gpu in gpu_info:
         gpu_free = float(gpu['memory.free'].split(" ")[0]) / 1024 
         if size + size * margin_of_safety > gpu_free:
@@ -302,31 +300,55 @@ def handle(args):
     # MODEL PRIORITY
     # 1. SAFETENSORS
     print("----------------------------------------")
-    precision_levels = ['fp32','fp16', 'int8','int4']
+    precision_levels = ['float32','float16', 'bfloat16', 'int8','int4']
+    precisions = [None] * len(precision_levels)
+    detected_main_dtype = estimated_total.get('MODEL_DTYPES', {})[0]
+    for i, q in enumerate(precision_levels):
+        if q == detected_main_dtype:
+            precision_levels[:i] = [''] * i
+            divisor = 1
+            for j, _ in enumerate(precisions[i:]):
+                precisions[i + j] = divisor
+                if i+1 < len(precision_levels) and precision_levels[i+1] != 'bfloat16':
+                    divisor *= 2
+            break
+    
+    if args.precision != 'all':
+        precision_levels = [p if p == args.precision else '' for p in precision_levels]
+
+    if all(item == "" for item in precision_levels):
+        print("Cannot compare model size and GPU memory. Desired precision levels is not available.")
+ 
     if estimated_total.get('safetensors', 0) > 0:
-        for q in precision_levels:
+        for i, q in enumerate(precision_levels):
+            if q == "":
+                continue
             print(f"[{q.upper()} - SINGLE] Safetensors Model File Size vs Free GPU Memory:")
             # Single Settings, all models are fitted into GPU
-            compare_single_setup(estimated_total['safetensors'], q, gpu_info)
+            compare_single_setup(estimated_total['safetensors'], precisions[i], gpu_info)
             # IF SHARDED AND DISTRIBUTED
-            compare_distributed(estimated_total['safetensors'], q, gpu_info)
+            compare_distributed(estimated_total['safetensors'], precisions[i], gpu_info)
 
     # 2. PYTORCH BIN
     elif estimated_total.get('pytorch', 0) > 0:
-        for q in precision_levels:
+        for i, q in enumerate(precision_levels):
+            if q == "":
+                continue
             print(f"[{q.upper()} - SINGLE] PyTorch Model File Size vs Free GPU Memory:")
             # Single Settings, all models are fitted into GPU
-            compare_single_setup(estimated_total['pytorch'], q, gpu_info)
+            compare_single_setup(estimated_total['pytorch'], precisions[i], gpu_info)
             # IF SHARDED AND DISTRIBUTED
-            compare_distributed(estimated_total['pytorch'], q, gpu_info)
+            compare_distributed(estimated_total['pytorch'], precisions[i], gpu_info)
     # 3. ONNX ()
     elif estimated_total.get('onnx', 0) > 0:
-        for q in precision_levels:
+        for i, q in enumerate(precision_levels):
+            if q == "":
+                continue
             print(f"[{q.upper()} - SINGLE] ONNX Model File Size vs Free GPU Memory:")
             # Single Settings, all models are fitted into GPU
-            compare_single_setup(estimated_total['onnx'], q, gpu_info)
+            compare_single_setup(estimated_total['onnx'], precisions[i], gpu_info)
             # IF SHARDED AND DISTRIBUTED
-            compare_distributed(estimated_total['onnx'], q, gpu_info)
+            compare_distributed(estimated_total['onnx'], precisions[i], gpu_info)
     # 4. OTHERS
 
     

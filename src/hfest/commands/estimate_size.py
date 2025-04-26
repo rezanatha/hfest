@@ -4,6 +4,9 @@ import json
 import requests
 import re
 import sys
+import tempfile
+import os
+
 
 def setup_parser(subparsers):
     parser = subparsers.add_parser("estimate-size", help="Estimate model size")
@@ -16,6 +19,7 @@ def validate_model_id(model_id):
     return bool(re.match(pattern, model_id))
 
 def estimate_model_files(args):
+    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
     config = read_config()
 
@@ -94,22 +98,56 @@ def estimate_model_files(args):
     else:
         print("Is an empty repository")
         return None
-            
-    sys.stdout.write("Estimated Model File Distribution: calculating...\r")
-    sys.stdout.flush()
-
+    
+        
     # for k,v in model_files.items():
     #     print(f"{len(v)} {k}",end=" ")
     # print("\n")
+    # check for config.json, if we have a valid params_size and dtype and there is only 1 model type
+    # use config.json to calculate model size
+    num_model_type = 0
+    for _, files in model_files.items():
+        if len(files) > 0:
+            num_model_type += 1
+    
+    main_dtype = None
+    additional_dtypes = []
+    if num_model_type == 1 and int(model_params_size) > 0:
+        try:
+            config_file = hf_hub_download(
+                    repo_id=args.model_id,
+                    filename="config.json",
+                    local_dir=tempfile.gettempdir(),
 
+                )
+            with open(config_file, 'r') as f:
+                config_json = json.load(f)
+            main_dtype = config_json.get('torch_dtype', None)
+            if "quantization_config" in config_json:
+                additional_dtypes.append(config_json["quantization_config"]["quant_method"])
+
+            print(f"Model Data Type:")
+            print(f"  • Main data type: {main_dtype}")
+            for i, a in enumerate(additional_dtypes):
+                print(f"  • Additional data type {i+1}: {a}")
+    
+        except Exception as e:
+            print(f"Failed to download and process config.json, unable to infer data types {e}")
+    
+    model_dtypes = (main_dtype, additional_dtypes)
+    sys.stdout.write("Estimated Model File Distribution: calculating...\r")
+    sys.stdout.flush()
+    
     # fetch real model size 
     estimated_total = {k[0]: 0 for k in model_extensions}
+    estimated_total['MODEL_DTYPES'] = model_dtypes
     for i, (model_type, model_name) in enumerate(model_files.items()):
         file_infos = []
         
         for file in model_name[:10]:  # Limit to first 10 files to avoid API abuse
             file_info = api.get_paths_info(repo_id=args.model_id, paths=[file])[0]
             file_infos.append((file, file_info.size if hasattr(file_info, 'size') and file_info.size else "Unknown"))
+
         # for file, size in file_infos:
         #     if size != "Unknown":
         #         size_mb = size / (1024 * 1024)
@@ -123,11 +161,21 @@ def estimate_model_files(args):
                 sys.stdout.write("Estimated Model File Distribution:\n") 
                 sys.stdout.flush()
 
-            known_sizes = [size for _, size in file_infos if size != "Unknown"]
-            if known_sizes:
-                avg_size = sum(known_sizes) / len(known_sizes)
-                estimated_total[model_type] = avg_size * len(model_name)
+            DTYPES = {'float32':32, 
+                     'bfloat16': 16, 
+                     'float16':16, 
+                     'int8':8}
+
+            if main_dtype and len(additional_dtypes) == 0:
+                print(f"Estimating Using dtypes {main_dtype} of {int(model_params_size)} params")
+                estimated_total[model_type] = DTYPES[main_dtype] * (4 * int(model_params_size)) / 32
                 print(f"  • {model_type}: {len(model_name)} file(s) ({estimated_total[model_type] / (1024**3):.2f} GB)")
+            else:
+                known_sizes = [size for _, size in file_infos if size != "Unknown"]
+                if known_sizes:
+                    avg_size = sum(known_sizes) / len(known_sizes)
+                    estimated_total[model_type] = avg_size * len(model_name)
+                    print(f"  • {model_type}: {len(model_name)} file(s) ({estimated_total[model_type] / (1024**3):.2f} GB)")
         else:
             print(f"  • {model_type}: {len(model_name)} file(s) (0 GB)")
 
