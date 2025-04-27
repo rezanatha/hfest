@@ -1,5 +1,6 @@
 from ..utils.config import read_config
 from huggingface_hub import hf_hub_download, scan_cache_dir, HfApi, login
+from huggingface_hub.utils import disable_progress_bars
 import json
 import requests
 import re
@@ -19,7 +20,7 @@ def validate_model_id(model_id):
     return bool(re.match(pattern, model_id))
 
 def estimate_model_files(args):
-    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+    disable_progress_bars()
 
     config = read_config()
 

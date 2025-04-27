@@ -1,6 +1,7 @@
 from .estimate_size import estimate_model_files
 import subprocess
 import platform
+import re
 
 RED = "\033[91m"
 GREEN = "\033[92m"
@@ -42,26 +43,25 @@ def detect_os():
     return None
 
 def detect_gpu(detected_os):
+    gpu_set = set()
     if detected_os == "Windows":
-        gpu_set = set()
         try:
             cmd = ["wmic","path", "win32_VideoController", "get", "Caption," "AdapterRAM,", "DriverVersion"]
             output = subprocess.check_output(cmd, universal_newlines=True)
+            #print("GPU INFO", output, flush=True)
             for i, line in enumerate(output.split('\n')):
                 if i == 0: # header
                     continue
-
-                if "NVIDIA" in line.upper():
+                if re.search(r"\bNVIDIA\b", line.upper()):
                     gpu_set.add("NVIDIA")
-                elif "AMD" or "RADEON" or "ATI" in gpu.upper():
+                elif re.search(r"AMD|RADEON", line.upper()):
                     gpu_set.add("AMD")
-                elif "INTEL" in gpu.upper():
+                elif re.search(r"\bINTEL\b", line.upper()):
                     gpu_set.add("INTEL")
             return gpu_set
         except:
             return gpu_set
     elif detected_os == "Darwin":
-        gpu_set = set()
         try:
             cmd = ["system_profiler", "SPDisplaysDataType"]
             output = subprocess.check_output(cmd, universal_newlines=True)
@@ -84,18 +84,19 @@ def detect_gpu(detected_os):
         output = grep_process.communicate()[0]
 
         gpu_info = output.strip().split('\n')
-        gpu_set = set()
+        import sys
+        #print("GPU INFO", gpu_info, flush=True)
         for gpu in gpu_info:
-            if "NVIDIA" in gpu.upper():
+            if re.search(r"\bNVIDIA\b", gpu.upper()):
                 gpu_set.add("NVIDIA")
-            elif "AMD" or "RADEON" or "ATI" in gpu.upper():
+            elif re.search(r"AMD|RADEON", gpu.upper()):
                 gpu_set.add("AMD")
-            elif "INTEL" in gpu.upper():
+            elif re.search(r"\bINTEL\b", gpu.upper()):
                 gpu_set.add("INTEL")
         return gpu_set
 
     print("GPU is not detected.")
-    return None
+    return gpu_set
 
 def get_nvidia_gpu_info():
     try:
@@ -266,6 +267,26 @@ def setup_parser(subparsers):
 def handle(args):
     print(f"Model: {args.model_id}")
     print("----------------------------------------")
+    # VALIDATE ARGS
+    # validate filetype
+    filetypes = ['safetensors', 'pytorch', 'onnx']
+    if args.filetype not in filetypes + ['auto']:
+        print(f"Invalid file type: {args.filetype}")
+        print(f"Valid file types: {filetypes}")
+        return 1           
+    # validate args.gpu_config
+    gpu_configs = ['single', 'distributed']
+    if args.gpu_config not in gpu_configs + ['all']:
+        print(f"Invalid gpu config: {args.gpu_config}")
+        print(f"Valid gpu configs: {gpu_configs}")
+        return 1       
+    # validate args.precision 
+    precision_levels = ['float32','float16', 'bfloat16', 'int8','int4']
+    if args.precision not in (precision_levels + ['all']):
+        print(f"Invalid precision: {args.precision}")
+        print(f"Valid precisions: {precision_levels}")
+        return 1
+
     # estimate model size
     estimated_total = estimate_model_files(args)
     print("----------------------------------------")
@@ -300,7 +321,8 @@ def handle(args):
     # MODEL PRIORITY
     # 1. SAFETENSORS
     print("----------------------------------------")
-    precision_levels = ['float32','float16', 'bfloat16', 'int8','int4']
+
+    # Work with precisions
     precisions = [None] * len(precision_levels)
     detected_main_dtype = estimated_total.get('MODEL_DTYPES', {})[0]
     for i, q in enumerate(precision_levels):
@@ -312,12 +334,13 @@ def handle(args):
                 if i+1 < len(precision_levels) and precision_levels[i+1] != 'bfloat16':
                     divisor *= 2
             break
-    
+
+
     if args.precision != 'all':
         precision_levels = [p if p == args.precision else '' for p in precision_levels]
 
     if all(item == "" for item in precision_levels):
-        print("Cannot compare model size and GPU memory. Desired precision levels is not available.")
+        print("Cannot compare model size and GPU memory. Desired precision level is larger than what the model has.")
  
     if estimated_total.get('safetensors', 0) > 0:
         for i, q in enumerate(precision_levels):
